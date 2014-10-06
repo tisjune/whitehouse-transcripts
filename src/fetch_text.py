@@ -7,6 +7,7 @@ import urllib2
 import os
 import re
 import string
+import cPickle
 
 testurl0 = 'http://www.whitehouse.gov/the-press-office/2014/10/03/remarks-president-town-hall-manufacturing'
 testurl1 = 'http://www.whitehouse.gov/the_press_office/Remarks-by-the-President-at-a-fundraiser-for-Senator-Harry-Reid-5/26/2009'
@@ -16,12 +17,15 @@ testurl4 = 'http://www.whitehouse.gov/the-press-office/2013/02/12/remarks-presid
 testurl5 = 'http://www.whitehouse.gov/the-press-office/2014/10/04/weekly-address-we-do-better-when-middle-class-does-better'
 testurl6 = 'http://www.whitehouse.gov/the-press-office/2014/10/03/remarks-first-lady-michelle-obama-martha-coakley-governor-rally'
 
-LISTING_ROOT_ADDR = "http://www.whitehouse.gov/briefing-room/speeches-and-remarks?page="
+#LISTING_ROOT_ADDR = "http://www.whitehouse.gov/briefing-room/speeches-and-remarks?page="
+LISTING_ROOT_ADDR = "http://www.whitehouse.gov/briefing-room/press-briefings?page="
 ROOT_ADDR = 'http://www.whitehouse.gov'
 #OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/texts"
 #OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/test"
-OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/transcripts"
+OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/press_briefings"
 DEBUG_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/debug"
+#NUM_PAGES = 327
+NUM_PAGES = 130
 
 CONTENT_DIV_CLASS = 'extend-page body-text clearfix clear press-article node-content'
 INPUT_TIMEFORMAT = '%B %d, %Y'
@@ -136,7 +140,7 @@ failures = []
 crashes = []
 
 
-for i in range(327):
+for i in range(NUM_PAGES):
 
 	print 'fetching from listing '+str(i) + '...'
 

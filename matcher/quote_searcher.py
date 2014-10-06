@@ -5,7 +5,7 @@ import cPickle
 
 NEWS_TIMEFORMAT = "%Y-%m-%d %H:%M:%S"
 
-class ArticleReader:
+class ArticleReader(object):
 
 	'''
 		reads spinn3r articles, matches quotes within them,
@@ -37,7 +37,9 @@ class ArticleReader:
 					'url': source url,
 					'article_idx': index of article in idx_to_article,
 					'matched_quote': version of quote that was matched to transcript
+						(i.e. after formatting)
 					'transcript_name': filename of matched transcript, 
+					'paragraph': index of paragraphs matched to
 					'alignment': quote alignment (as tuple of ints),
 					'similarity': sim b/n quote and transcript
 				}
@@ -131,6 +133,7 @@ class ArticleReader:
 											  'article_idx': this_article_idx,
 											  'matched_quote': match_result['matched_quote'],
 											  'transcript_name': match_result['transcript_name'],
+											  'paragraph': match_result['paragraph']
 											  'alignment': match_result['alignment'],
 											  'similarity': match_result['similarity']})
 

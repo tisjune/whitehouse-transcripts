@@ -10,111 +10,124 @@ import match_utils as mu
 
 TRANSCRIPT_TIMEFORMAT = "%Y-%m-%d %H:%M"
 
-def get_first_pos(seq): 
-	first_pos = seq[0]
-	index = 0
-	while (first_pos < 0):
-		first_pos = seq[index]
-		index += 1
-	return first_pos
+class TranscriptCollection(object):
+	'''
+		Stores a collection of transcripts, for quote matching.
 
-class TranscriptCollection(object): # I am bothered by how this is different from what I did to handle transcripts during alignment :(
+		Arguments:
+			transcript_directory: directory where transcripts are located
+			stopword_file (default='mysql_stop.txt'): list of stop words
+			default_speaker (default='THE PRESIDENT'): identity of speaker 
+				if we cannot infer anyone else
 
-	def __init__(self, transcript_dir):
+		Attributes:
 
-		self.transcript_dir = transcript_dir
+			order: list of (transcript filename, date) in chronological order
 
-		self.transcript_order = []
-		self.transcript_text = {}
+			transcripts: dict of transcript filename to transcript data:
 
-		for transcript_name in os.listdir(transcript_dir):
+				{
+					'title': title of speech,
+					'date': timestamp of speech,
+					'paragraphs': list of paragraphs in transcript
+				}
 
-			with open(os.path.join(transcript_dir,transcript_name)) as f:
+				A paragraph is stored as the following dict:
+					{
+						'raw': raw text (lowercase),
+						'display': list of words in paragraph. 
+							used to synchronize display with matching.
+						'match': list of words in transcript,
+							stripped of paragraph and capitalization.
+							used for quote matching.
+						'words': set of words in paragraph.
+						'speaker': speaker of paragraph (inferred & hopefully correct!)
+					}
+	'''
+
+	def __init__(self, transcript_directory, stopword_file = 'mysql_stop.txt',
+					default_speaker = 'THE PRESIDENT'):
+
+		self._transcript_directory = transcript_directory
+
+		self._stopword_set = set()
+		with open(stopword_file, 'r') as f:
+			for line in f.readlines():
+				self._stopword_set.add(line.strip())
+
+		self.order = []
+		self.transcripts = {}
+
+		count = 0
+
+		for filename in os.listdir(transcript_directory):
+
+			if count % 250 == 0:
+				print count
+			count += 1
+
+			with open(os.path.join(transcript_directory, filename)) as f:
 
 				title = f.readline()
-				date = dt.datetime.strptime(f.readline().strip(), TRANSCRIPT_TIMEFORMAT)
-				date = date.replace(hour=0, minute=0) # dubious but I've noticed weird behaviour here.
-				self.transcript_order.append((date, transcript_name))
+				title = title.strip()
+				date_raw = f.readline()
+				date = dt.datetime.strptime(date_raw.strip(), TRANSCRIPT_TIMEFORMAT)
+				self.order.append((filename, date))
 
 				speech = f.read()
+				paragraph_text = speech.split('\n')
 
-				paragraphs = speech.split('\n')
+				paragraphs = []
 
-				para_array = [mu.convert_to_display_array(x) for x in paragraphs]
+				curr_speaker = default_speaker
 
-				transcript_dict = {}
-				transcript_dict['paragraphs'] = para_array
-				transcript_dict['timestamp'] = date
+				for paragraph in paragraph_text:
 
-				self.transcript_text[transcript_name] = transcript_dict
+					if not paragraph.isspace():
 
-		self.transcript_order = sorted(self.transcript_order, key=lambda elem: elem[0])
+						#find speaker
+						if paragraph.startswith('Q '):
+							curr_speaker = 'Q'
+							paragraph = paragraph[2:]
+						split_for_speaker = paragraph.split(':')
 
+						if len(split_for_speaker) > 1:
+							potential_speaker = split_for_speaker[0]
+							if potential_speaker.isupper():
+								curr_speaker = potential_speaker
+								speech_index = 1
+							else:
+								speech_index = 0
+						else:
+							speech_index = 0
 
-	def dump_all(self, outfile):
+						#process text
 
-		with open(outfile, 'w') as f:
-			for t in self.transcript_order:
-				t_paras = self.transcript_text[t[1]]['paragraphs']
+						speech_text = split_for_speaker[speech_index]
 
-				display_strs = [' '.join(p) for p in t_paras]
-				display_str = '\n'.join(display_strs)
+						display_array = mu.convert_to_display_array(speech_text)
+						if len(display_array) == 0:
+							continue
 
-				f.write(display_str + '\n')
+						match_array = mu.convert_to_match_array(speech_text)
+						raw_text = ' '.join(match_array)
+						words = set(match_array) - self._stopword_set
 
-	def format_jslda(self, outfile, by_paragraph = True):
-		#docname\tpara_id\tparagraph maybe? not sure why what looks like para_id is listed twice in the sotu_small.txt example
+						pdict = {}
+						pdict['raw'] = raw_text
+						pdict['display'] = display_array
+						pdict['match'] = match_array
+						pdict['words'] = words
+						pdict['speaker'] = curr_speaker
+						
+						paragraphs.append(pdict)
 
-		with open(outfile, 'w') as f:
+				tdict = {}
+				tdict['title'] = title
+				tdict['date'] = date
+				tdict['paragraphs'] = paragraphs
 
-			for t in self.transcript_order:
+				self.transcripts[filename] = tdict
 
-				tname = t[1]
-				t_paras = self.transcript_text[tname]['paragraphs']
+		self.order = sorted(self.order, key=lambda elem: elem[1])	 
 
-				if by_paragraph:
-					
-
-					para_id = 0
-
-					for p in t_paras:
-
-						display_str = ' '.join(p)
-
-						para_name = tname + '_' + str(para_id)
-						f.write(para_name + '\t' + tname + '\t' + display_str + '\n')
-
-						para_id += 1
-
-				else:
-
-					display_strs = [' '.join(p) for p in t_paras]
-					display_str = ' '.join(display_strs)
-
-					f.write(tname + '\t' + tname + '\t' + display_str + '\n')
-
-
-
-
-	def get_paragraph_id(self, alignment):
-
-		transcript_name = alignment[1]
-
-		para_array = self.transcript_text[transcript_name]['paragraphs']
-
-		align_start = get_first_pos(alignment[0][-1])
-
-		para_id = 0 
-		word_num = 0
-
-		for p in para_array:
-
-			word_num += len(p)
-
-			if word_num > align_start:
-
-				return para_id
-
-			para_id += 1
-
-		return para_id
