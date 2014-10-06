@@ -10,9 +10,10 @@ import match_utils as mu
 
 TRANSCRIPT_TIMEFORMAT = "%Y-%m-%d %H:%M"
 
-class TranscriptCollection(object):
+def load_transcript_collection(transcript_directory, stopword_file = 'mysql_stop.txt',
+					default_speaker = 'THE PRESIDENT'):
 	'''
-		Stores a collection of transcripts, for quote matching.
+		Loads a collection of transcripts, for quote matching.
 
 		Arguments:
 			transcript_directory: directory where transcripts are located
@@ -20,7 +21,7 @@ class TranscriptCollection(object):
 			default_speaker (default='THE PRESIDENT'): identity of speaker 
 				if we cannot infer anyone else
 
-		Attributes:
+		Returns:
 
 			order: list of (transcript filename, date) in chronological order
 
@@ -44,90 +45,93 @@ class TranscriptCollection(object):
 						'speaker': speaker of paragraph (inferred & hopefully correct!)
 					}
 	'''
+	stopword_set = set()
+	with open(stopword_file, 'r') as f:
+		for line in f.readlines():
+			stopword_set.add(line.strip())
 
-	def __init__(self, transcript_directory, stopword_file = 'mysql_stop.txt',
-					default_speaker = 'THE PRESIDENT'):
+	order = []
+	transcripts = {}
 
-		self._transcript_directory = transcript_directory
+	count = 0
 
-		self._stopword_set = set()
-		with open(stopword_file, 'r') as f:
-			for line in f.readlines():
-				self._stopword_set.add(line.strip())
+	for filename in os.listdir(transcript_directory):
 
-		self.order = []
-		self.transcripts = {}
+		if count % 250 == 0:
+			print count
+		count += 1
 
-		count = 0
+		with open(os.path.join(transcript_directory, filename)) as f:
 
-		for filename in os.listdir(transcript_directory):
+			title = f.readline()
+			title = title.strip()
+			date_raw = f.readline()
+			date = dt.datetime.strptime(date_raw.strip(), TRANSCRIPT_TIMEFORMAT)
+			order.append((filename, date))
 
-			if count % 250 == 0:
-				print count
-			count += 1
+			speech = f.read()
+			paragraph_text = speech.split('\n')
 
-			with open(os.path.join(transcript_directory, filename)) as f:
+			paragraphs = []
 
-				title = f.readline()
-				title = title.strip()
-				date_raw = f.readline()
-				date = dt.datetime.strptime(date_raw.strip(), TRANSCRIPT_TIMEFORMAT)
-				self.order.append((filename, date))
+			curr_speaker = default_speaker
+			for paragraph in paragraph_text:
 
-				speech = f.read()
-				paragraph_text = speech.split('\n')
+				if 'Please see below for corrections' in paragraph:
+					continue
 
-				paragraphs = []
+				if paragraph and not paragraph.isspace():
 
-				curr_speaker = default_speaker
+					#find speaker
+					if paragraph[0] == 'Q' and len(paragraph) > 1 \
+						and paragraph[1].isspace():
+						curr_speaker = 'Q'
+						paragraph = paragraph[2:]
 
-				for paragraph in paragraph_text:
+					split_for_speaker = paragraph.split(':')
 
-					if not paragraph.isspace():
-
-						#find speaker
-						if paragraph.startswith('Q '):
-							curr_speaker = 'Q'
-							paragraph = paragraph[2:]
-						split_for_speaker = paragraph.split(':')
-
-						if len(split_for_speaker) > 1:
-							potential_speaker = split_for_speaker[0]
-							if potential_speaker.isupper():
-								curr_speaker = potential_speaker
-								speech_index = 1
-							else:
-								speech_index = 0
+					if len(split_for_speaker) > 1:
+						potential_speaker = split_for_speaker[0]
+						if potential_speaker.isupper():
+							curr_speaker = potential_speaker
+							speech_index = 1
 						else:
 							speech_index = 0
+					else:
+						speech_index = 0
 
-						#process text
+					#process text
 
-						speech_text = split_for_speaker[speech_index]
+					speech_text = split_for_speaker[speech_index]
 
-						display_array = mu.convert_to_display_array(speech_text)
-						if len(display_array) == 0:
-							continue
+					display_array = mu.convert_to_display_array(speech_text)
+					if len(display_array) == 0:
+						continue
+					if display_array[0] == 'Q':
+						curr_speaker = 'Q'
+					if display_array[0].isdigit() and len(paragraphs) == 1:
+						continue
 
-						match_array = mu.convert_to_match_array(speech_text)
-						raw_text = ' '.join(match_array)
-						words = set(match_array) - self._stopword_set
+					match_array = mu.convert_to_match_array(speech_text)
+					raw_text = ' '.join(match_array)
+					words = set(match_array) - stopword_set
 
-						pdict = {}
-						pdict['raw'] = raw_text
-						pdict['display'] = display_array
-						pdict['match'] = match_array
-						pdict['words'] = words
-						pdict['speaker'] = curr_speaker
-						
-						paragraphs.append(pdict)
+					pdict = {}
+					pdict['raw'] = raw_text
+					pdict['display'] = display_array
+					pdict['match'] = match_array
+					pdict['words'] = words
+					pdict['speaker'] = curr_speaker
+					
+					paragraphs.append(pdict)
 
-				tdict = {}
-				tdict['title'] = title
-				tdict['date'] = date
-				tdict['paragraphs'] = paragraphs
+			tdict = {}
+			tdict['title'] = title
+			tdict['date'] = date
+			tdict['paragraphs'] = paragraphs
 
-				self.transcripts[filename] = tdict
+			transcripts[filename] = tdict
 
-		self.order = sorted(self.order, key=lambda elem: elem[1])	 
+	order = sorted(order, key=lambda elem: elem[1])
+	return order, transcripts	 
 
