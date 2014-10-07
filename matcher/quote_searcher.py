@@ -1,6 +1,6 @@
 import gzip, os
 import datetime as dt 
-from match_quotes import QuoteMatcher
+from matcher import QuoteMatcher
 import cPickle
 
 NEWS_TIMEFORMAT = "%Y-%m-%d %H:%M:%S"
@@ -36,13 +36,12 @@ class ArticleReader(object):
 					'quote': quote text,
 					'url': source url,
 					'article_idx': index of article in idx_to_article,
-					'matched_quote': version of quote that was matched to transcript
-						(i.e. after formatting)
 					'transcript_name': filename of matched transcript, 
 					'paragraph': index of paragraphs matched to
 					'alignment': quote alignment (as tuple of ints),
 					'similarity': sim b/n quote and transcript
 				}
+				version, paragraph and alignment are tuples: one entry for each segment of the quote.
 			errors: array of quotes which threw errors during matching. 
 				entries formatted as such:
 					{
@@ -126,12 +125,11 @@ class ArticleReader(object):
 
 				try:
 					match_result = self.qm.match_quote(quote, article['date'])
-					if match_result['matched'] is True:
+					if match_result is not None:
 						has_matching_quote = True
 						self.mentions.append({'quote': quote,
 											  'url': article['url'],
 											  'article_idx': this_article_idx,
-											  'matched_quote': match_result['matched_quote'],
 											  'transcript_name': match_result['transcript_name'],
 											  'paragraph': match_result['paragraph']
 											  'alignment': match_result['alignment'],
@@ -140,6 +138,8 @@ class ArticleReader(object):
 				except:
 					self.errors.append({'quote': quote, 
 										'article': article})
+					if verbose:
+						print quote
 
 			if has_matching_quote is True:
 

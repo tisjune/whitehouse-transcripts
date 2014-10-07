@@ -83,15 +83,14 @@ def load_transcript_collection(transcript_directory, stopword_file = 'mysql_stop
 				if paragraph and not paragraph.isspace():
 
 					#find speaker
-					if paragraph[0] == 'Q' and len(paragraph) > 1 \
-						and paragraph[1].isspace():
-						curr_speaker = 'Q'
-						paragraph = paragraph[2:]
 
 					split_for_speaker = paragraph.split(':')
 
 					if len(split_for_speaker) > 1:
+
 						potential_speaker = split_for_speaker[0]
+						if potential_speaker.isdigit():
+							continue
 						if potential_speaker.isupper():
 							curr_speaker = potential_speaker
 							speech_index = 1
@@ -107,12 +106,14 @@ def load_transcript_collection(transcript_directory, stopword_file = 'mysql_stop
 					display_array = mu.convert_to_display_array(speech_text)
 					if len(display_array) == 0:
 						continue
-					if display_array[0] == 'Q':
-						curr_speaker = 'Q'
-					if display_array[0].isdigit() and len(paragraphs) == 1:
-						continue
+
+
 
 					match_array = mu.convert_to_match_array(speech_text)
+					if display_array[0] == 'Q':
+						curr_speaker = 'Q'
+						display_array = display_array[1:]
+						match_array = match_array[1:]
 					raw_text = ' '.join(match_array)
 					words = set(match_array) - stopword_set
 

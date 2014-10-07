@@ -91,7 +91,136 @@ def convert_to_match_array(phrase, display_array=None, formatfn = lambda x: x):
 
 
 
+def segment_quote(quote):
+
+	segments = quote.split('...')
+	seg_arrs = [convert_to_match_array(seg) for seg in segments]
+
+	processed_segments = []
+	to_append = []
+	for curr_seg in seg_arrs:
+		if len(curr_seg) > 0:
+			if len(curr_seg) <= 2:
+				to_append += curr_seg
+			else:
+				to_append += curr_seg
+				processed_segments.append(to_append)
+				to_append = []
+	if len(to_append) > 0:
+		if len(to_append) <= 2:
+			processed_segments[-1] += to_append
+		else:
+			processed_segments.append(to_append)
+
+	return [tuple(seg) for seg in processed_segments]
 
 
+def _subarray_search(small_array, big_array, startindex):
+
+	for i in range(startindex, len(big_array) - len(small_array) + 1):
+	    if small_array == big_array[i:i+len(small_array)]:
+	        return range(i, i+len(small_array))
+	return None
+
+def align_verbatim(quote_array, transcript_array):
+	# aligns verbatim quotes. assumes that quote text is verbatim in transcript text.
+	simple_match_result = _subarray_search(quote_array, transcript_array, 0)
+
+	if (simple_match_result):
+		return tuple(simple_match_result)
+
+	else: 
+		shortened_quote_array = quote_array[1:-1]
+		startindex = 1
+		while startindex <= len(transcript_array) - len(quote_array):
+			snip_match_result = subarray_search(shortened_quote_array, transcript_array, startindex)
+			if snip_match_result:
+				if (transcript_array[snip_match_result[0]-1].endswith(quote_array[0]) 
+                    and transcript_array[snip_match_result[-1]+1].startswith(quote_array[-1])):
+					return tuple(range(snip_match_result[0]-1, snip_match_result[-1]+2)), 0
+				else:
+					startindex = snip_match_result[0] + 1
+			else:
+				break
+	                
+        return None
 
 
+def load_stopword_set(stopword_filename = 'mysql_stop.txt'):
+	stopword_set = set()
+	with open(stopword_file, 'r') as f:
+		for line in f.readlines():
+			stopword_set.add(line.strip())
+	return stopword_set
+
+def match_segment_to_paragraph(segment_arr, paragraph_dict, stopword_set,
+								min_fuzz_len, word_ratio):
+
+	raw_text = ' '.join(segment_arr)
+	alignment = None
+
+	# try verbatim match
+	if raw_text in paragraph_dict['raw']:
+		alignment = align_verbatim(segment_arr, paragraph_dict['match'])
+	
+	if alignment:
+		return (alignment, 0)
+
+	elif len(segment_arr) < min_fuzz_len:
+		return (None, None)
+
+	# try fuzzy match
+
+	# see if enough words present
+	segment_words = set(segment_arr) - stopword_set
+	intersect_words = segment_words.intersection(paragraph_dict['words'])
+	intersect_ratio = len(intersect_words) / len(segment_words)
+	if intersect_ratio >= word_ratio:
+		alignment, score = align_paraphrase(segment_arr, paragraph_dict['match'])
+		return (alignment, score)
+	else:
+		return (None, None)
+
+def align_paraphrase(quote_array, transcript_array, sub_pen = -1, gap_pen = -1):
+	'''
+		Uses Needleman-Wunsch to align a quote to a transcript, returning tuple (alignment, similarity score).
+
+		Note this is a modified version of NW to deal with aligning a short string to a substring of a longer string.
+
+		In particular, gaps before and after the occurrence of the substring are not penalized.
+	'''
+		# initialization 
+	sseq = [''] + quote_array
+	bseq = [''] + transcript_array
+	slen = len(sseq)
+	blen = len(bseq)
+	nw_matrix = np.zeros((slen, blen))
+	nw_matrix[:,0] = gap_pen * np.array(range(0, slen))
+
+	# score
+	#return nw_matrix
+	for i in range(1, slen):
+		for j in range(1, blen):
+			subcost = 0 if sseq[i]==bseq[j] else sub_pen
+			nw_matrix[i,j] = max(nw_matrix[i-1,j-1]+subcost, 
+                                nw_matrix[i-1,j]+ gap_pen, 
+                                nw_matrix[i,j-1] + gap_pen)
+	max_ind_rev = np.argmax(nw_matrix[-1,:][::-1])
+	max_ind = blen - max_ind_rev - 1
+	max_score = nw_matrix[-1, max_ind]
+	weighted_score = max_score/len(quote_array)
+	align_vect = [0] * (slen-1)
+	i = slen - 1
+	j = max_ind
+	while (i > 0 and j > 0):
+		if (j > 0 and nw_matrix[i,j] == nw_matrix[i,j-1] + gap_pen):
+			j -= 1
+		elif (i > 0 and nw_matrix[i,j] == nw_matrix[i-1, j] + gap_pen):
+			align_vect[i-1] = -1
+			i -= 1
+		else:
+			subcost = 0 if sseq[i]==bseq[j] else sub_pen
+			align_vect[i-1] = -1 if subcost < 0 else j-1
+			i -= 1
+			j -= 1
+	return tuple(align_vect), weighted_score

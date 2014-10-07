@@ -1,3 +1,6 @@
 *.pyc
 *.ipynb
 *.pk
+dumps_test
+cache
+.ipynb_checkpoints
