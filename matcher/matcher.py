@@ -15,7 +15,7 @@ class QuoteMatcher:
 	ACCEPT_THRESHOLD = -.1
 
 	def __init__(self, transcript_order, transcript_collection,
-		stopword_file = 'mysql_stop.txt', sim_tolerance = -.4, word_ratio = .8, verbose = 0):
+		stopword_file = 'mysql_stop.txt', sim_tolerance = -.4, word_ratio = .75, verbose = 0):
 
 		self.order = [x[0] for x in transcript_order]
 
@@ -25,7 +25,7 @@ class QuoteMatcher:
 		self.stopwords = mu.load_stopword_set(stopword_file)
 
 		self.tol = sim_tolerance
-		self.word_ratio = .8
+		self.word_ratio = word_ratio
 
 		self.verbose = verbose
 
@@ -42,7 +42,6 @@ class QuoteMatcher:
 		self.quote_time_cache = {}
 
 	def match_quote(self, quote, timestamp): # decomposition: who does that?
-
 		if quote[0] == '?':
 			# spinn3r doesn't unicode?!?
 			return None
@@ -56,26 +55,23 @@ class QuoteMatcher:
 				return cached_quote_result
 			else:
 				return None
-
 		segment_arr = mu.segment_quote(quote)
 
 		# check len req
 		if max([len(x) for x in segment_arr]) < self.MIN_LEN:
 			self.quote_time_cache[(quote, timestamp)] = {'similarity': None}
 			return None
-
 		# get timespan
 		latest_transcript_index = bisect.bisect_left(self.times, timestamp) - 1
 		earliest_transcript_index = bisect.bisect_left(self.times, timestamp - self.MAX_INTERVAL)
 
-		if latest_transcript_index < 0 or earliest_transcript_index >= len(self.transcript_times):
+		if latest_transcript_index < 0 or earliest_transcript_index >= len(self.times):
 			self.quote_time_cache[(quote, timestamp)] = {'similarity': None}
 			return None
 
 		# now that we know quote satisfies basic time and len, search thru transcripts...
 
 		search_range = range(latest_transcript_index, earliest_transcript_index - 1, -1)
-
 		best_align = None
 		best_paras = None
 		best_score = None
@@ -94,14 +90,14 @@ class QuoteMatcher:
 				curr_score = cached_quote_result['similarity']
 
 				# definitely a match
-				if curr_score >= ACCEPT_THRESHOLD:
+				if curr_score >= self.ACCEPT_THRESHOLD:
 					result_dict = {}
-					result_dict['transcript_name'] = curr_tname
+					result_dict['transcript'] = curr_tname
 					result_dict['paragraph'] = cached_quote_result['paragraph']
 					result_dict['alignment'] = cached_quote_result['alignment']
 					result_dict['similarity'] = curr_score
 
-					self.quote_time_cache[(quote, timestamp)] = cached_quote_result
+					self.quote_time_cache[(quote, timestamp)] = result_dict
 
 					return result_dict
 
@@ -193,6 +189,7 @@ class QuoteMatcher:
 						align, score = mu.match_segment_to_paragraph(curr_seg,
 											curr_para, self.stopwords, self.MIN_FUZZ_LEN,
 											self.word_ratio)
+
 						# cache result
 						self.seg_para_cache[(curr_seg, curr_tname, k)] = {
 											'alignment': align,
@@ -210,13 +207,14 @@ class QuoteMatcher:
 						elif score >= self.tol and score >= best_para_score:
 							best_para_align = align
 							best_para = k
-							best_para_score = score							
+							best_para_score = score		
 
 				# we finished checking seg against the transcript! let's see what we've found...
 
 				# keep track of the alignment score. recall this is the min of 
 					# each indiv segs score.
 				if min_seg_score is None or best_para_score < min_seg_score:
+
 					min_seg_score = best_para_score
 
 				self.seg_transcript_cache[(curr_seg, curr_tname)] = {
@@ -224,7 +222,6 @@ class QuoteMatcher:
 						'paragraph': best_para,
 						'similarity': best_para_score
 					}
-
 				if best_para_score >= self.tol:
 					curr_align[j] = best_para_align
 					curr_paras[j] = best_para
@@ -246,14 +243,11 @@ class QuoteMatcher:
 					'paragraph': curr_paras,
 					'similarity': min_seg_score
 				}
-
-
-
-
+			
 			if min_seg_score >= self.tol and min_seg_score > best_score:
 
 				best_align = curr_align
-				best_para = curr_paras
+				best_paras = curr_paras
 				best_transcript = curr_tname
 				best_score = min_seg_score
 
@@ -261,12 +255,11 @@ class QuoteMatcher:
 				# need to look at any other transcripts.
 			if min_seg_score >= self.ACCEPT_THRESHOLD:
 				break
-				
 		# and now we're done with the entire set of transcripts. let's see what we find ...
 		result_dict = {
 				'alignment': best_align,
-				'paragraph': best_para,
-				'similarity': best_score
+				'paragraph': best_paras,
+				'similarity': best_score,
 				'transcript': best_transcript
 			}
 		self.quote_time_cache[(quote, timestamp)] = result_dict

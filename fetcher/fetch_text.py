@@ -21,8 +21,8 @@ testurl6 = 'http://www.whitehouse.gov/the-press-office/2014/10/03/remarks-first-
 LISTING_ROOT_ADDR = "http://www.whitehouse.gov/briefing-room/press-briefings?page="
 ROOT_ADDR = 'http://www.whitehouse.gov'
 #OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/texts"
-#OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/test"
-OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/press_briefings"
+OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/transcripts"
+#OUTPUT_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/press_briefings"
 DEBUG_DIR = "/NLP/creativity/work/pres_addrs/whitehouse_texts/debug"
 #NUM_PAGES = 327
 NUM_PAGES = 130
@@ -139,8 +139,8 @@ def fetch_transcript(url):
 failures = []
 crashes = []
 
-
-for i in range(NUM_PAGES):
+print fetch_transcript('http://www.whitehouse.gov/the-press-office/2013/02/12/remarks-president-state-union-address')
+'''for i in range(NUM_PAGES):
 
 	print 'fetching from listing '+str(i) + '...'
 
@@ -163,4 +163,4 @@ with open(os.path.join(DEBUG_DIR,'failures.pk'), 'wb') as f:
 	cPickle.dump(failures, f)
 
 with open(os.path.join(DEBUG_DIR,'crashes.pk'), 'wb') as f:
-	cPickle.dump(crashes, f)
+	cPickle.dump(crashes, f)'''

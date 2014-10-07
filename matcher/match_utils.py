@@ -107,7 +107,7 @@ def segment_quote(quote):
 				processed_segments.append(to_append)
 				to_append = []
 	if len(to_append) > 0:
-		if len(to_append) <= 2:
+		if len(to_append) <= 2 and len(processed_segments) > 0:
 			processed_segments[-1] += to_append
 		else:
 			processed_segments.append(to_append)
@@ -133,7 +133,7 @@ def align_verbatim(quote_array, transcript_array):
 		shortened_quote_array = quote_array[1:-1]
 		startindex = 1
 		while startindex <= len(transcript_array) - len(quote_array):
-			snip_match_result = subarray_search(shortened_quote_array, transcript_array, startindex)
+			snip_match_result = _subarray_search(shortened_quote_array, transcript_array, startindex)
 			if snip_match_result:
 				if (transcript_array[snip_match_result[0]-1].endswith(quote_array[0]) 
                     and transcript_array[snip_match_result[-1]+1].startswith(quote_array[-1])):
@@ -148,34 +148,40 @@ def align_verbatim(quote_array, transcript_array):
 
 def load_stopword_set(stopword_filename = 'mysql_stop.txt'):
 	stopword_set = set()
-	with open(stopword_file, 'r') as f:
+	with open(stopword_filename, 'r') as f:
 		for line in f.readlines():
 			stopword_set.add(line.strip())
 	return stopword_set
 
 def match_segment_to_paragraph(segment_arr, paragraph_dict, stopword_set,
 								min_fuzz_len, word_ratio):
-
+	segment_arr = list(segment_arr)
 	raw_text = ' '.join(segment_arr)
 	alignment = None
 
 	# try verbatim match
+
+
 	if raw_text in paragraph_dict['raw']:
 		alignment = align_verbatim(segment_arr, paragraph_dict['match'])
-	
 	if alignment:
 		return (alignment, 0)
 
 	elif len(segment_arr) < min_fuzz_len:
+
 		return (None, None)
 
 	# try fuzzy match
 
 	# see if enough words present
 	segment_words = set(segment_arr) - stopword_set
+	if len(segment_words) == 0:
+		return (None, None)
 	intersect_words = segment_words.intersection(paragraph_dict['words'])
 	intersect_ratio = len(intersect_words) / len(segment_words)
+
 	if intersect_ratio >= word_ratio:
+
 		alignment, score = align_paraphrase(segment_arr, paragraph_dict['match'])
 		return (alignment, score)
 	else:
@@ -190,7 +196,7 @@ def align_paraphrase(quote_array, transcript_array, sub_pen = -1, gap_pen = -1):
 		In particular, gaps before and after the occurrence of the substring are not penalized.
 	'''
 		# initialization 
-	sseq = [''] + quote_array
+	sseq = [''] + list(quote_array)
 	bseq = [''] + transcript_array
 	slen = len(sseq)
 	blen = len(bseq)

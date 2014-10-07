@@ -101,7 +101,7 @@ def load_transcript_collection(transcript_directory, stopword_file = 'mysql_stop
 
 					#process text
 
-					speech_text = split_for_speaker[speech_index]
+					speech_text = ' '.join(split_for_speaker[speech_index:])
 
 					display_array = mu.convert_to_display_array(speech_text)
 					if len(display_array) == 0:

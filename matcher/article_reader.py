@@ -31,7 +31,7 @@ class ArticleReader(object):
 			article_to_idx: map of (article url, article content) to 
 					index in idx_to_article
 			idx_to_article: map of index to article 
-			mentions: array of matches, where each match is of the following format:
+			matches: array of matches, where each match is of the following format:
 				{
 					'quote': quote text,
 					'url': source url,
@@ -50,7 +50,7 @@ class ArticleReader(object):
 					}
 	'''
 
-	def __init__(self, quote_matcher, verbose=True):
+	def __init__(self, quote_matcher, verbose=False):
 
 		self.qm = quote_matcher
 
@@ -61,7 +61,7 @@ class ArticleReader(object):
 		self.article_to_idx = {}
 		self.idx_to_article = {}
 
-		self.mentions = []
+		self.matches = []
 
 		self.errors = []
 
@@ -121,25 +121,27 @@ class ArticleReader(object):
 
 			has_matching_quote = False
 
-			for quote in article_dict['quotes']:
-
+			for quote in article['quotes']:
 				try:
+
 					match_result = self.qm.match_quote(quote, article['date'])
 					if match_result is not None:
 						has_matching_quote = True
-						self.mentions.append({'quote': quote,
+						self.matches.append({'quote': quote,
 											  'url': article['url'],
-											  'article_idx': this_article_idx,
-											  'transcript_name': match_result['transcript_name'],
-											  'paragraph': match_result['paragraph']
+											  'article_idx': self._next_article_idx,
+											  'transcript_name': match_result['transcript'],
+											  'paragraph': match_result['paragraph'],
 											  'alignment': match_result['alignment'],
 											  'similarity': match_result['similarity']})
-
 				except:
+					if self.verbose:
+						print "error "
+						print quote
+
 					self.errors.append({'quote': quote, 
 										'article': article})
-					if verbose:
-						print quote
+					#print match_result
 
 			if has_matching_quote is True:
 
