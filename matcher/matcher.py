@@ -191,10 +191,11 @@ class QuoteMatcher:
 											self.word_ratio)
 
 						# cache result
-						self.seg_para_cache[(curr_seg, curr_tname, k)] = {
+						# or not...this is a gigantic memory hog!
+						'''self.seg_para_cache[(curr_seg, curr_tname, k)] = {
 											'alignment': align,
 											'similarity': score
-											}
+											}'''
 
 						# we hit a perfect match! so we don't have to look at any more paras.
 						if score == 0:
@@ -217,11 +218,12 @@ class QuoteMatcher:
 
 					min_seg_score = best_para_score
 
-				self.seg_transcript_cache[(curr_seg, curr_tname)] = {
+				# for memory purposes we probably shouldn't.
+				'''self.seg_transcript_cache[(curr_seg, curr_tname)] = {
 						'alignment': best_para_align,
 						'paragraph': best_para,
 						'similarity': best_para_score
-					}
+					}'''
 				if best_para_score >= self.tol:
 					curr_align[j] = best_para_align
 					curr_paras[j] = best_para

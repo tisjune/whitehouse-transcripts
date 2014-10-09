@@ -109,7 +109,7 @@ class ArticleReader(object):
 
 	def _read_article(self, article):
 
-		article_key = (article['url'], article['content'])
+		article_key = (article['url'], article['content'], article['date'])
 		article_idx = self.article_to_idx.get(article_key, None)
 
 		if article_idx:
@@ -123,7 +123,6 @@ class ArticleReader(object):
 
 			for quote in article['quotes']:
 				try:
-
 					match_result = self.qm.match_quote(quote, article['date'])
 					if match_result is not None:
 						has_matching_quote = True

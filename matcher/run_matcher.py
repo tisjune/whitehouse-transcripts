@@ -1,14 +1,16 @@
 from matcher import QuoteMatcher
 from article_reader import ArticleReader
 import os
+import sys
 
+year = sys.argv[1]
 import cPickle
 
 TRANSCRIPT_ORDER = '/NLP/creativity/work/pres_addrs/output_whitehouse/transcript_data/whitehouse_transcript_order.pk'
 TRANSCRIPTS = '/NLP/creativity/work/pres_addrs/output_whitehouse/transcript_data/whitehouse_transcripts.pk' 
 spinn3r_dir = "/NLP/creativity/nobackup/results/"
 stopword_file = '/NLP/creativity/work/pres_addrs/src_new/matcher/mysql_stop.txt'
-OUTPUT_DIR = '/NLP/creativity/work/pres_addrs/output_whitehouse/match_data'
+OUTPUT_DIR = '/NLP/creativity/work/pres_addrs/output_whitehouse/match_data_'+year
 
 print 'loading all'
 with open(TRANSCRIPT_ORDER, 'r') as f:
@@ -22,7 +24,7 @@ ar = ArticleReader(qm, verbose=True)
 
 count = 0
 
-filelist = [os.path.join(spinn3r_dir, f) for f in os.listdir(spinn3r_dir) if f.endswith('.gz')]
+filelist = [os.path.join(spinn3r_dir, f) for f in os.listdir(spinn3r_dir) if f.endswith('.gz') and year in f]
 
 print 'starting matching'
 for f in filelist:
